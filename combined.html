@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Visualization</title>
+    <script src="https://d3js.org/d3-collection.v1.min.js"></script>
+    <script src="https://d3js.org/d3-dispatch.v1.min.js"></script>
+    <script src="https://d3js.org/d3-request.v1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-selection@3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-dsv@3"></script>
+    <script src="https://d3js.org/d3.v4.js"></script>
+    <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <table style="margin-bottom: 3rem"></table>
+    <script>
+
+        d3.request("https://raw.githubusercontent.com/umassdgithub/Week-5-Part-2/main/Exercise/data_sample.csv")
+            .mimeType("text/csv")
+            .response(function (xhr) { return d3.csvParse(xhr.responseText); })
+            .get(function (data) {
+                var columns = ["date", "EstimatedCost", "RawMaterial", "Workmanship", "YearlyStorage", "ActualCost", "SoldPrice", "MarginOfProfit"]
+                createTable(calculateMoProfit(data), columns)
+        });
+
+        var calculateMoProfit = (data) => {
+            data.forEach(row => {
+                row.ActualCost = parseInt(row.RawMaterial) + parseInt(row.Workmanship) + parseInt(row.YearlyStorage);
+                row.SoldPrice = (parseInt(row.EstimatedCost) * 1.1).toFixed(2);
+                row.MarginOfProfit = (parseInt(row.SoldPrice) - parseInt(row.ActualCost)).toFixed(2);
+            });
+            return data;
+        }
+
+        var createTable = function (data, columns) {
+            var table = d3.select('table')//.prepend('table')
+            var thead = table.append('thead')
+            var tbody = table.append('tbody')
+
+            thead.append('tr')
+                .selectAll('th')
+                .data(columns)
+                .enter()
+                .append('th')
+                .text(function (d) { return d.toUpperCase() })
+
+            var rows = tbody.selectAll('tr')
+                .data(data)
+                .enter()
+                .append('tr')
+
+            var cells = rows.selectAll('td')
+                .data(function (row) {
+                    return columns.map(function (column) {
+                        return { column: column, value: row[column] }
+                    })
+                })
+                .enter()
+                .append('td')
+                .text(function (d) { return d.value })
+
+            return table;
+        }
+    </script>
+        <div id="my_dataviz" style="width:80%; margin-inline: auto"></div>
+        <script>
+    
+            var margin = { top: 10, right: 100, bottom: 30, left: 30 },
+                width = 1000 - margin.left - margin.right,
+                height = 800 - margin.top - margin.bottom;
+    
+            var svg = d3.select("#my_dataviz")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform",
+                    "translate(" + margin.left + "," + margin.top + ")");
+    
+            d3.csv("https://raw.githubusercontent.com/umassdgithub/Week-5-Part-2/main/Exercise/data_sample.csv", function (data) {
+    
+                var col_groups = ["RawMaterial", "Workmanship", "YearlyStorage"]
+    
+                var formatted_data = col_groups.map(function (group_name) { 
+                    return {
+                        name: group_name,
+                        values: data.map(function (d) {
+                            return { time: new Date(d.date), value: +d[group_name] };
+                        })
+                    };
+                });
+                //  set color
+                var myColor = d3.scaleOrdinal()
+                    .domain(col_groups)
+                    .range(d3.schemeCategory10);
+    
+                // Scale time usage
+                var x = d3.scaleTime()
+                    .domain([new Date('2019-01-01'), new Date('2020-09-01')])
+                    .range([0, width]);
+    
+                svg.append("g")
+                    .attr("transform", "translate(0," + height + ")")
+                    .call(d3.axisBottom(x).tickFormat(d3.timeFormat("%b %y")).tickValues(data.map(d=>new Date(d.date))));
+                
+                // Scale Linear usage
+                var y = d3.scaleLinear()
+                    .domain([0, 700])
+                    .range([height, 0]);
+                svg.append("g")
+                    .call(d3.axisLeft(y));
+                
+                // line() usage
+                var line = d3.line()
+                    .x(function (d) { return x(+d.time) })
+                    .y(function (d) { return y(+d.value) })
+                    
+                svg.selectAll("myLines")
+                    .data(formatted_data)
+                    .enter()
+                    .append("path")
+                    .attr("d", function (d) { return line(d.values) })
+                    .attr("stroke", function (d) { return myColor(d.name) })
+                    .style("stroke-width", 4)
+                    .style("fill", "none")
+    
+                svg
+                    .selectAll("myDots")
+                    .data(formatted_data)
+                    .enter()
+                    .append('g')
+                    .style("fill", function (d) { return myColor(d.name) })
+                    .selectAll("myPoints")
+                    .data(function (d) { return d.values })
+                    .enter()
+                    .append("circle")
+                    .attr("cx", function (d) { return x(d.time) })
+                    .attr("cy", function (d) { return y(d.value) })
+                    .attr("r", 5)
+                    .attr("stroke", "white")
+    
+                svg
+                    .selectAll("myLabels")
+                    .data(formatted_data)
+                    .enter()
+                    .append('g')
+                    .append("text")
+                    .datum(function (d) { return { name: d.name, value: d.values[d.values.length - 1] }; }) // keep only the last value of each time series
+                    .attr("transform", function (d) { return "translate(" + x(d.value.time) + "," + y(d.value.value) + ")"; }) // Put the text at the position of the last point
+                    .attr("x", 12)
+                    .text(function (d) { return d.name; })
+                    .style("fill", function (d) { return myColor(d.name) })
+                    .style("font-size", 15)
+    
+            })
+    
+            var mySVG = document.getElementById('svg');
+            mySVG.setAttribute("viewBox", "0 0 1000 800");
+        </script>
+</body>
+
+</html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Visualization</title>
+    <script src="https://d3js.org/d3-collection.v1.min.js"></script>
+    <script src="https://d3js.org/d3-dispatch.v1.min.js"></script>
+    <script src="https://d3js.org/d3-request.v1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-selection@3"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-dsv@3"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <script>
+
+        d3.request("https://raw.githubusercontent.com/umassdgithub/Week-5-Part-2/main/Exercise/data_sample.csv")
+            .mimeType("text/csv")
+            .response(function (xhr) { return d3.csvParse(xhr.responseText); })
+            .get(function (data) {
+                var columns = ["date", "EstimatedCost", "RawMaterial", "Workmanship", "YearlyStorage", "ActualCost", "SoldPrice", "MarginOfProfit"]
+                createTable(calculateMoProfit(data), columns)
+        });
+
+        var calculateMoProfit = (data) => {
+            data.forEach(row => {
+                row.ActualCost = parseInt(row.RawMaterial) + parseInt(row.Workmanship) + parseInt(row.YearlyStorage);
+                row.SoldPrice = (parseInt(row.EstimatedCost) * 1.1).toFixed(2);
+                row.MarginOfProfit = (parseInt(row.SoldPrice) - parseInt(row.ActualCost)).toFixed(2);
+            });
+            return data;
+        }
+
+        var createTable = function (data, columns) {
+            var table = d3.select('body').append('table')
+            var thead = table.append('thead')
+            var tbody = table.append('tbody')
+
+            thead.append('tr')
+                .selectAll('th')
+                .data(columns)
+                .enter()
+                .append('th')
+                .text(function (d) { return d.toUpperCase() })
+
+            var rows = tbody.selectAll('tr')
+                .data(data)
+                .enter()
+                .append('tr')
+
+            var cells = rows.selectAll('td')
+                .data(function (row) {
+                    return columns.map(function (column) {
+                        return { column: column, value: row[column] }
+                    })
+                })
+                .enter()
+                .append('td')
+                .text(function (d) { return d.value })
+
+            return table;
+        }
+    </script>
+    
+</body>
+
+</html>
